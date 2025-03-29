@@ -1,0 +1,23 @@
+{
+    "id": 8195564,
+    "propertyInfo": {
+      "address": {
+        "address": "1433 Canyon Rd",
+        "city": "Santa Fe",
+        "state": "NM",
+        "zip": "87501",
+        "label": "1433 Canyon Rd, Santa Fe, NM 87501"
+      },
+      "latitude": 35.68142,
+      "longitude": -105.906501,
+      "bedrooms": 3,
+      "bathrooms": 2.5,
+      "livingSquareFeet": 3385,
+      "yearBuilt": 1950,
+      "propertyUse": "Single Family Residence",
+      "description": "Charming Adobe-style home nestled in the heart of Santa Fe's historic Canyon Road art district. This property offers a serene retreat with classic architectural details and modern comforts, spread across a generous lot."
+    },
+    "estimatedValue": 697581,
+    "mlsStatus": "Off Market",
+    "imgSrc": "https://photos.zillowstatic.com/fp/0b134e72217525d84a46b073e9ba3f05-p_d.jpg"
+  }
