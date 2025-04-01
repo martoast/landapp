@@ -21,6 +21,23 @@
         {{ showFireLayer ? "Hide Fire Severity" : "Show Fire Severity" }}
       </button>
     </div>
+    
+    <!-- Reopen Sidebar Button - Only shown when sidebar is closed but we have property data -->
+    <div
+      v-if="showReopenButton"
+      class="absolute right-4 z-10"
+      style="top:5rem;"
+    >
+      <button
+        @click="$emit('reopen-sidebar')"
+        class="px-4 py-2 bg-white shadow-md rounded-md text-sm font-medium hover:bg-gray-50 transition-colors flex items-center"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v14a1 1 0 01-1 1H4a1 1 0 01-1-1V3zm3 0v14h9V3H6z" clip-rule="evenodd" />
+        </svg>
+        Show Details
+      </button>
+    </div>
   </div>
 </template>
 
@@ -57,9 +74,17 @@ const props = defineProps({
     type: Number,
     default: 15,
   },
+  sidebarOpen: {
+    type: Boolean,
+    default: false
+  },
+  selectedProperty: {
+    type: Object,
+    default: null
+  }
 });
 
-const emit = defineEmits(['update-location', 'loading-state']);
+const emit = defineEmits(['update-location', 'loading-state', 'reopen-sidebar']);
 
 const config = useRuntimeConfig();
 const fireHazardApiUrl = (config.public.FIRE_HAZARD_API || 'https://fire-hazard-api-f7jb9.ondigitalocean.app').replace(/\/$/, '');
@@ -71,6 +96,11 @@ const mapLoaded = ref(false);
 const showFireLayer = ref(false);
 const fireInfo = ref(null);
 const isLoading = ref(false);
+
+// Computed property to determine if the reopen button should be shown
+const showReopenButton = computed(() => {
+  return !props.sidebarOpen && props.selectedProperty !== null;
+});
 
 // Fire severity layer constants
 const FIRE_SOURCE_ID = "fire-severity";
@@ -289,18 +319,6 @@ const fetchFireHazardData = async (latitude, longitude) => {
 const updateLoadingState = (loading) => {
   isLoading.value = loading;
   emit('loading-state', loading);
-};
-
-// Helper function to get CSS class based on severity
-const getSeverityClass = (severity) => {
-  if (!severity) return '';
-  
-  const severityLower = typeof severity === 'string' ? severity.toLowerCase() : '';
-  if (severityLower.includes('very high')) return 'text-red-600 font-bold';
-  if (severityLower.includes('high')) return 'text-orange-600 font-bold';
-  if (severityLower.includes('moderate')) return 'text-yellow-600 font-bold';
-  if (severityLower.includes('low')) return 'text-green-600';
-  return 'text-blue-600';
 };
 
 watch(

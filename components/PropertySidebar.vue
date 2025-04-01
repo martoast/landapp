@@ -9,7 +9,7 @@
     <!-- Property data loaded state -->
     <div v-else-if="property" class="p-6 space-y-6">
       <!-- Image Slideshow -->
-      <div v-if="property.zillow?.images?.length" class="relative rounded-lg overflow-hidden shadow-md">
+      <div v-if="hasImages" class="relative rounded-lg overflow-hidden shadow-md">
         <div class="w-full h-56 relative">
           <img 
             :src="currentImage" 
@@ -18,7 +18,7 @@
           />
           
           <!-- Carousel Navigation -->
-          <div v-if="property.zillow.images.length > 1" class="absolute inset-x-0 bottom-0 flex justify-between p-2">
+          <div v-if="imagesCount > 1" class="absolute inset-x-0 bottom-0 flex justify-between p-2">
             <button 
               @click="prevImage" 
               class="bg-black/40 hover:bg-black/60 text-white rounded-full p-1 transition-colors"
@@ -29,7 +29,7 @@
               </svg>
             </button>
             <div class="bg-black/40 text-white px-2 py-1 rounded-full text-xs">
-              {{ currentImageIndex + 1 }} / {{ property.zillow.images.length }}
+              {{ currentImageIndex + 1 }} / {{ imagesCount }}
             </div>
             <button 
               @click="nextImage" 
@@ -48,20 +48,35 @@
         No Images Available
       </div>
       
-
       <!-- Address & Price -->
       <div>
         <div class="flex justify-between items-start">
           <div>
-            <h2 class="text-xl font-bold text-gray-900">{{ formatPrice(property.zillow?.price) }}</h2>
-            <p class="text-sm text-gray-600 mt-1">{{ property.fullAddress }}</p>
+            <h2 class="text-xl font-bold text-gray-900">{{ formatPrice(property.price || property.zillow?.price) }}</h2>
+            <p class="text-sm text-gray-600 mt-1">{{ getFullAddress() }}</p>
           </div>
           <div class="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full text-xs font-semibold">
-            {{ property.zillow?.homeType || 'LAND' }}
+            {{ property.homeType || property.zillow?.homeType || 'LAND' }}
           </div>
+        </div>
+        
+        <!-- APN/Parcel Number -->
+        <div v-if="property.resoFacts?.parcelNumber" class="mt-1 text-xs text-gray-500">
+          APN: {{ property.resoFacts.parcelNumber }}
         </div>
       </div>
 
+      <!-- Description -->
+      <div v-if="property.description" class="text-sm text-gray-600">
+        <p>{{ truncateDescription(property.description, isDescriptionExpanded) }}</p>
+        <button 
+          v-if="property.description.length > 200"
+          @click="isDescriptionExpanded = !isDescriptionExpanded" 
+          class="text-indigo-600 text-xs mt-2 hover:text-indigo-800"
+        >
+          {{ isDescriptionExpanded ? 'Read less' : 'Read more' }}
+        </button>
+      </div>
       
       <!-- Fire Risk Assessment Card -->
       <div class="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm" v-if="property.fireHazard">
@@ -117,8 +132,8 @@
       
       <!-- View on Zillow Button -->
       <a 
-        v-if="property.zillow?.zpid" 
-        :href="`https://www.zillow.com/homedetails/${property.zillow.zpid}_zpid/`" 
+        v-if="property.zpid || property.zillow?.zpid" 
+        :href="`https://www.zillow.com/homedetails/${property.zpid || property.zillow?.zpid}_zpid/`" 
         target="_blank" 
         rel="noopener noreferrer" 
         class="block bg-indigo-600 hover:bg-indigo-700 text-white py-3 px-4 rounded-md shadow-sm text-sm font-medium text-center transition-colors"
@@ -143,7 +158,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 
 const props = defineProps({
   property: {
@@ -156,26 +171,39 @@ const props = defineProps({
   }
 });
 
-// State for image carousel
+// State variables
 const currentImageIndex = ref(0);
+const isDescriptionExpanded = ref(false);
+
+// Get images from all possible sources in property data
+const images = computed(() => {
+  if (props.property?.zillow?.images?.length) {
+    return props.property.zillow.images;
+  }
+  if (props.property?.imgSrc) {
+    return [props.property.imgSrc];
+  }
+  return [];
+});
+
+const hasImages = computed(() => images.value.length > 0);
+const imagesCount = computed(() => images.value.length);
 
 // Helper to get current image
 const currentImage = computed(() => {
-  if (!props.property?.zillow?.images || !props.property.zillow.images.length) {
-    return null;
-  }
-  return props.property.zillow.images[currentImageIndex.value];
+  if (!hasImages.value) return null;
+  return images.value[currentImageIndex.value];
 });
 
 // Functions for image carousel
 const nextImage = () => {
-  if (!props.property?.zillow?.images?.length) return;
-  currentImageIndex.value = (currentImageIndex.value + 1) % props.property.zillow.images.length;
+  if (!hasImages.value) return;
+  currentImageIndex.value = (currentImageIndex.value + 1) % images.value.length;
 };
 
 const prevImage = () => {
-  if (!props.property?.zillow?.images?.length) return;
-  currentImageIndex.value = (currentImageIndex.value - 1 + props.property.zillow.images.length) % props.property.zillow.images.length;
+  if (!hasImages.value) return;
+  currentImageIndex.value = (currentImageIndex.value - 1 + images.value.length) % images.value.length;
 };
 
 // Format price with dollar sign and commas
@@ -188,17 +216,44 @@ const formatPrice = (value) => {
   }).format(value);
 };
 
-// Format numbers with commas
-const formatNumber = (value) => {
-  if (value == null || isNaN(value)) return 'N/A';
-  return new Intl.NumberFormat('en-US').format(value);
+// Get full address from property data
+const getFullAddress = () => {
+  if (props.property?.fullAddress) {
+    return props.property.fullAddress;
+  }
+  
+  if (props.property?.address) {
+    if (typeof props.property.address === 'string') {
+      return props.property.address;
+    }
+    
+    // Handle object format
+    const addr = props.property.address;
+    return [
+      addr.streetAddress,
+      addr.city,
+      addr.state,
+      addr.zipcode
+    ].filter(Boolean).join(', ');
+  }
+  
+  if (props.property?.streetAddress) {
+    return [
+      props.property.streetAddress,
+      props.property.city,
+      props.property.state,
+      props.property.zipcode
+    ].filter(Boolean).join(', ');
+  }
+  
+  return 'Address unavailable';
 };
 
-// Convert square feet to acres
-const convertToAcres = (sqft) => {
-  if (sqft == null || isNaN(sqft)) return 'N/A';
-  const acres = sqft / 43560;
-  return acres.toFixed(2);
+// Truncate description with ellipsis
+const truncateDescription = (text, expanded) => {
+  if (!text) return '';
+  if (expanded || text.length <= 200) return text;
+  return text.substring(0, 200).trim() + '...';
 };
 
 // Helper function to get CSS class based on severity
@@ -216,5 +271,6 @@ const getSeverityClass = (severity) => {
 // Reset currentImageIndex when property changes
 watch(() => props.property, () => {
   currentImageIndex.value = 0;
+  isDescriptionExpanded.value = false;
 });
 </script>

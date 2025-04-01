@@ -2,13 +2,16 @@
   <div class="flex h-screen w-screen overflow-hidden">
     <!-- Map Area - Dynamic width based on sidebar state -->
     <div class="h-full relative bg-gray-300 transition-all duration-500 ease-in-out"
-         :class="selectedProperty ? 'w-2/3' : 'w-full'">
+         :class="sidebarOpen ? 'w-2/3' : 'w-full'">
       <MapDisplay
         v-if="propertyData && mapboxToken"
         :access-token="mapboxToken"
         :property="propertyData"
+        :sidebar-open="sidebarOpen"
+        :selected-property="selectedProperty"
         @update-location="handleLocationUpdate"
         @loading-state="updateLoadingState"
+        @reopen-sidebar="reopenSidebar"
       />
       <div v-else-if="pending" class="absolute inset-0 flex items-center justify-center bg-gray-200">
         <div class="flex flex-col items-center">
@@ -20,21 +23,18 @@
         <p v-if="!mapboxToken">Mapbox Token is missing. Please check configuration.</p>
         <p v-else>Error loading property data or map: {{ error?.message }}</p>
       </div>
-      
-     
     </div>
     
-    <!-- Sidebar Area - Slides in when property selected -->
+    <!-- Sidebar Area - Animated with transition -->
     <div 
       class="h-full transition-all duration-500 ease-in-out transform border-l border-gray-200 shadow-xl bg-white relative overflow-hidden"
       :class="[
-        selectedProperty ? 'w-1/3 translate-x-0' : 'w-0 translate-x-full',
-        sidebarLoading ? 'sidebar-shimmer' : ''
+        sidebarOpen ? 'w-1/3 translate-x-0' : 'w-0 translate-x-full'
       ]"
     >
       <!-- Close button for sidebar -->
       <button 
-        v-if="selectedProperty" 
+        v-if="sidebarOpen" 
         @click="closeSidebar"
         class="absolute top-3 left-3 z-10 bg-white rounded-full p-1 shadow-md hover:bg-gray-100 transition-colors"
         aria-label="Close sidebar"
@@ -46,7 +46,7 @@
       
       <!-- Property Sidebar Content -->
       <PropertySidebar 
-        v-if="selectedProperty"
+        v-if="sidebarOpen"
         :property="selectedProperty" 
         :loading="sidebarLoading"
       />
@@ -67,17 +67,19 @@ const mapboxToken = ref(config.public.MAPBOX_API_TOKEN);
 const propertyData = ref(null);
 const pending = ref(true);
 const error = ref(null);
-const initialLoad = ref(true);
 
 // Sidebar state
 const selectedProperty = ref(null);
 const sidebarLoading = ref(false);
+const sidebarOpen = ref(false);
 
 // Handle location update from map (address selection)
 const handleLocationUpdate = (addressData) => {
   // Update selected property with the address data
   selectedProperty.value = addressData;
-  initialLoad.value = false;
+  
+  // Open sidebar
+  sidebarOpen.value = true;
 };
 
 // Update loading state for the sidebar
@@ -87,7 +89,12 @@ const updateLoadingState = (loading) => {
 
 // Close sidebar function
 const closeSidebar = () => {
-  selectedProperty.value = null;
+  sidebarOpen.value = false;
+};
+
+// Reopen sidebar function
+const reopenSidebar = () => {
+  sidebarOpen.value = true;
 };
 
 onMounted(async () => {
@@ -116,7 +123,6 @@ onMounted(async () => {
     error.value = err;
   } finally {
     pending.value = false;
-    initialLoad.value = false;
   }
 });
 </script>
@@ -127,37 +133,5 @@ body {
   margin: 0;
   padding: 0;
   overflow: hidden; /* Prevent scrollbars on body due to h-screen */
-}
-
-/* Shimmer loading effect for sidebar */
-.sidebar-shimmer {
-  position: relative;
-  overflow: hidden;
-}
-
-.sidebar-shimmer::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(
-    90deg,
-    rgba(255, 255, 255, 0) 0%,
-    rgba(255, 255, 255, 0.2) 50%,
-    rgba(255, 255, 255, 0) 100%
-  );
-  z-index: 10;
-  animation: shimmer 1.5s infinite;
-}
-
-@keyframes shimmer {
-  0% {
-    transform: translateX(-100%);
-  }
-  100% {
-    transform: translateX(100%);
-  }
 }
 </style>
