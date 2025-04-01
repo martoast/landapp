@@ -7,6 +7,7 @@ export default defineNuxtConfig({
     public: {
       MAPBOX_API_TOKEN: process.env.MAPBOX_API_TOKEN,
       GOOGLE_MAPS_API_KEY: process.env.GOOGLE_MAPS_API_KEY,
+      FIRE_HAZARD_API: process.env.FIRE_HAZARD_API
     }
   }
 })
