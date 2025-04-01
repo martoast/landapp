@@ -1,7 +1,7 @@
 <template>
   <div class="flex h-screen w-screen overflow-hidden">
     <!-- Map Area -->
-    <div class="w-2/3 h-full relative bg-gray-300">
+    <div class="h-full relative bg-gray-300" style="width: 100%;">
       <MapDisplay
         v-if="propertyData && mapboxToken"
         :access-token="mapboxToken"
@@ -14,12 +14,6 @@
          <p v-if="!mapboxToken">Mapbox Token is missing. Please check configuration.</p>
          <p v-else>Error loading property data or map: {{ error?.message }}</p>
        </div>
-    </div>
-
-    <!-- Sidebar Area -->
-    <div class="w-1/3 h-full">
-      <PropertySidebar :property="propertyData" />
-       <!-- You might want loading/error states for the sidebar too -->
     </div>
   </div>
 </template>

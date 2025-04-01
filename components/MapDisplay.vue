@@ -22,21 +22,52 @@
       </div>
       
       <!-- Fire Severity Info Box (conditionally shown) -->
-      <div v-if="fireInfo" class="absolute bottom-4 left-4 w-72 bg-white p-4 rounded-md shadow-lg z-10">
+      <div v-if="fireInfo" class="absolute bottom-4 left-4 w-96 bg-white p-4 rounded-md shadow-lg z-10">
         <h3 class="font-bold text-lg mb-2">Fire Hazard Information</h3>
-        <div v-if="fireInfo.hazardZone" class="mb-2">
-          <p class="font-medium">Severity: 
-            <span :class="getSeverityClass(fireInfo.hazardZone)">
-              {{ fireInfo.hazardZone }}
-            </span>
-          </p>
+        
+        <div v-if="fireInfo.isLoading" class="py-2">
+          <p>Loading fire hazard data...</p>
         </div>
-        <div v-if="fireInfo.hazardClass" class="mb-2">
-          <p class="font-medium">Class: {{ fireInfo.hazardClass }}</p>
+        
+        <div v-else>
+          <!-- In Hazard Zone status -->
+          <div class="mb-2 py-1 px-2 rounded" :class="fireInfo.inHazardZone ? 'bg-red-50' : 'bg-green-50'">
+            <p class="font-medium">
+              {{ fireInfo.inHazardZone ? 'In Fire Hazard Zone' : 'Not in Fire Hazard Zone' }}
+            </p>
+          </div>
+          
+          <!-- Hazard Zone Information -->
+          <div v-if="fireInfo.hazardZone" class="mb-2">
+            <p class="font-medium">Severity: 
+              <span :class="getSeverityClass(fireInfo.hazardZone.severity)">
+                {{ fireInfo.hazardZone.severity }}
+              </span>
+            </p>
+            <p class="text-sm">{{ fireInfo.hazardZone.explanation }}</p>
+          </div>
+          
+          <!-- Nearest Hazard Zone -->
+          <div v-if="fireInfo.nearestHazardZone && !fireInfo.inHazardZone" class="mb-2">
+            <p class="font-medium">Nearest Hazard Zone: 
+              <span :class="getSeverityClass(fireInfo.nearestHazardZone.severity)">
+                {{ fireInfo.nearestHazardZone.severity }}
+              </span>
+              ({{ fireInfo.nearestHazardZone.distance_km.toFixed(1) }} km away)
+            </p>
+          </div>
+          
+          <!-- Risk Assessment -->
+          <div v-if="fireInfo.riskAssessment" class="mb-2">
+            <p class="font-medium">Risk Category: 
+              <span :class="getSeverityClass(fireInfo.riskAssessment.category)">
+                {{ fireInfo.riskAssessment.category }}
+              </span>
+            </p>
+            <p class="text-sm">{{ fireInfo.riskAssessment.description }}</p>
+          </div>
         </div>
-        <div v-if="fireInfo.details" class="text-sm text-gray-600">
-          <p>{{ fireInfo.details }}</p>
-        </div>
+        
         <button 
           @click="fireInfo = null" 
           class="absolute top-2 right-2 text-gray-400 hover:text-gray-600"
@@ -197,14 +228,13 @@
           
           // Set fire info for the info box
           fireInfo.value = {
-            hazardZone: props.FHSZ_Description || "Unknown",
-            hazardClass: props.FHSZ_7Class || "Unknown",
-            details: `This area is classified as ${props.FHSZ_Description} fire hazard severity. Type: ${props.SRA22_2 || "Unknown"}`
+            hazardZone: {
+              severity: props.FHSZ_Description || "Unknown",
+              explanation: `This area is classified as ${props.FHSZ_Description} fire hazard severity. Type: ${props.SRA22_2 || "Unknown"}`
+            },
+            inHazardZone: true,
+            mapLayerData: props
           };
-          
-          // Optional: Fetch more data from API
-          const [lng, lat] = e.lngLat.toArray();
-          fetchFireHazardData(lat, lng);
         }
       });
     }
@@ -232,7 +262,8 @@
     if (!map.value || !addressData.coordinates) return;
     
     // Extract coordinates
-    const [longitude, latitude] = addressData.coordinates;
+    const longitude = addressData.longitude;
+    const latitude = addressData.latitude;
     
     // Fly to the selected location
     map.value.flyTo({
@@ -247,8 +278,18 @@
       .setLngLat([longitude, latitude])
       .addTo(map.value);
     
-    // Fetch fire hazard data for the location
-    fetchFireHazardData(latitude, longitude);
+    // If we have fire hazard data from the autocomplete component, show it
+    if (addressData.fireHazard) {
+      fireInfo.value = addressData.fireHazard;
+    }
+    
+    // Show fire layer if not already visible
+    if (!showFireLayer.value) {
+      showFireLayer.value = true;
+      if (map.value.getLayer(FIRE_LAYER_ID)) {
+        map.value.setLayoutProperty(FIRE_LAYER_ID, "visibility", "visible");
+      }
+    }
     
     // Emit updated location to parent component
     emit('update-location', {
@@ -259,30 +300,6 @@
     });
   };
   
-  // Function to fetch fire hazard data from the API
-  const fetchFireHazardData = async (latitude, longitude) => {
-    try {
-      // Replace with your actual API endpoint
-      const response = await fetch(`https://fire-hazard-api-f7jb9.ondigitalocean.app/fire-hazard?lat=${latitude}&lon=${longitude}`);
-      
-      if (!response.ok) {
-        console.warn('Fire hazard API returned an error status');
-        return;
-      }
-      
-      const data = await response.json();
-      
-      // Update fire info with API data
-      fireInfo.value = {
-        ...fireInfo.value,
-      };
-      
-      console.log('Fire hazard data:', data);
-    } catch (error) {
-      console.error('Error fetching fire hazard data:', error);
-    }
-  };
-  
   // Helper function to get CSS class based on severity
   const getSeverityClass = (severity) => {
     if (!severity) return '';
@@ -291,6 +308,7 @@
     if (severityLower.includes('very high')) return 'text-red-600 font-bold';
     if (severityLower.includes('high')) return 'text-orange-600 font-bold';
     if (severityLower.includes('moderate')) return 'text-yellow-600 font-bold';
+    if (severityLower.includes('low')) return 'text-green-600';
     return 'text-blue-600';
   };
   

@@ -1,6 +1,6 @@
 <template>
     <div class="relative w-full">
-      <!-- Simple search input that we'll control ourselves -->
+      <!-- Search Input -->
       <div class="flex items-center relative">
         <input
           ref="inputElement"
@@ -64,6 +64,7 @@
   
   <script setup>
   import { ref, onMounted, onBeforeUnmount } from 'vue';
+  import { useRuntimeConfig } from 'nuxt/app';
   
   const props = defineProps({
     access_token: {
@@ -81,6 +82,9 @@
   });
   
   const emit = defineEmits(['select-address']);
+  
+  const config = useRuntimeConfig();
+  const fireHazardApiUrl = config.public.FIRE_HAZARD_API || 'https://fire-hazard-api-f7jb9.ondigitalocean.app';
   
   const inputElement = ref(null);
   const searchText = ref('');
@@ -125,6 +129,25 @@
     }
   };
   
+  // Get fire hazard data for a location
+  const getFireHazardData = async (latitude, longitude) => {
+    try {
+      const response = await fetch(`${fireHazardApiUrl}/fire-hazard?lat=${latitude}&lon=${longitude}`);
+      
+      if (!response.ok) {
+        throw new Error(`API returned status ${response.status}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error(`Error fetching fire hazard data:`, error);
+      return {
+        error: true,
+        message: error.message
+      };
+    }
+  };
+  
   // Handle input with debounce
   const handleInput = (e) => {
     // Clear any existing timeout
@@ -139,9 +162,10 @@
   };
   
   // Select an address from the dropdown
-  const selectAddress = (result) => {
+  const selectAddress = async (result) => {
     // Extract address components
     const coordinates = result.geometry?.coordinates || [0, 0];
+    const [longitude, latitude] = coordinates;
     const fullAddress = result.place_name || '';
     
     // Parse context array for address components if available
@@ -164,6 +188,8 @@
     const addressComponents = {
       fullAddress,
       coordinates, // [longitude, latitude]
+      latitude,
+      longitude,
       name: result.text || fullAddress.split(',')[0] || '',
       addressLine1: result.address || '',
       place,
@@ -179,19 +205,20 @@
     // Close the dropdown
     showResults.value = false;
     
-    // Get fire hazard data if available
+    // Get fire hazard data
     try {
-      // This would be replaced with your actual API call
-      // For now, we're adding a placeholder for future implementation
-      const fireData = {
-        hazardLevel: 'Moderate', // This would come from your API
-        riskScore: 5, // This would come from your API
-      };
+      const fireData = await getFireHazardData(latitude, longitude);
       
       // Add fire hazard data to address components
-      addressComponents.fireHazard = fireData;
+      addressComponents.fireHazard = {
+        inHazardZone: fireData.in_hazard_zone,
+        hazardZone: fireData.hazard_zone,
+        nearestHazardZone: fireData.nearest_hazard_zone,
+        riskAssessment: fireData.risk_assessment,
+        rawData: fireData
+      };
     } catch (error) {
-      console.error('Error fetching fire hazard data:', error);
+      console.error('Error processing fire hazard data:', error);
       // Add empty fire hazard data
       addressComponents.fireHazard = { error: true };
     }
