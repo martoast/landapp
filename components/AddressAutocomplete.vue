@@ -84,7 +84,7 @@
   const emit = defineEmits(['select-address']);
   
   const config = useRuntimeConfig();
-  const fireHazardApiUrl = config.public.FIRE_HAZARD_API || 'https://fire-hazard-api-f7jb9.ondigitalocean.app';
+  const fireHazardApiUrl = config.public.FIRE_HAZARD_API;
   
   const inputElement = ref(null);
   const searchText = ref('');

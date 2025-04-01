@@ -11,7 +11,7 @@
       </div>
       
       <!-- Layer Toggle Button -->
-      <div class="absolute top-20 left-4 z-10">
+      <div class="absolute top-20 left-4 z-1">
         <button
           @click="toggleFireLayer"
           class="px-4 py-2 bg-white shadow-md rounded-md text-sm font-medium hover:bg-gray-50 transition-colors"
